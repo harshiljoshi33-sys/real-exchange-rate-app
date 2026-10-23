@@ -120,28 +120,30 @@ def _normalize_observations(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
 def fetch_imf_series(iso3: str, series_kind: str) -> pd.DataFrame:
-    """
-    Fetch an IMF SDMX 3.0 series.
+    """Fetch a monthly series from the IMF SDMX 3.0 Data API.
 
-    The IMF's API dataflow identifiers and content negotiation can vary by dataset.
-    This function tries the supplied series key against common SDMX 3.0 URL shapes.
-    If IMF changes its dataflow identifier, the error lists attempted URLs so the
-    dataflow can be updated without changing the calculations below.
+    IMF's current portal exposes CPI and Exchange Rates as the CPI and ER
+    dataflows (agency IMF.STA). The canonical SDMX 3.0 data route is
+    /data/dataflow/{agency}/{dataflow}/{version}/{key}. Keep a few compatible
+    route variants as fallbacks because the IMF portal's API is evolving.
     """
     if series_kind == "CPI":
         key = f"{iso3}.CPI._T.IX.M"
+        dataflow = "CPI"
     elif series_kind == "FX":
         key = f"{iso3}.XDC_USD.PA_RT.M"
+        dataflow = "ER"
     else:
         raise ValueError("Unknown series kind")
 
-    # These dataflow names are tried because IMF SDMX APIs expose data under
-    # dataset/dataflow identifiers. The requested key itself follows the assignment brief.
+    # The dataflow route is the documented SDMX 3.0 pattern. Include both
+    # agency/dataflow and compact dataflow identifiers as API-compatible fallbacks.
     candidates = [
-        f"{IMF_BASE}/data/IMF.STA,{series_kind},1.0/{key}",
-        f"{IMF_BASE}/data/IMF.STA,{series_kind},1.0/{key}?startPeriod=1976-01&dimension_at_observation=TIME_PERIOD",
-        f"{IMF_BASE}/data/{series_kind}/{key}",
-        f"{IMF_BASE}/data/{key}",
+        f"{IMF_BASE}/data/dataflow/IMF.STA/{dataflow}/1.0/{key}?startPeriod=1976-01&dimension_at_observation=TIME_PERIOD",
+        f"{IMF_BASE}/data/dataflow/IMF.STA/{dataflow}/latest/{key}?startPeriod=1976-01&dimension_at_observation=TIME_PERIOD",
+        f"{IMF_BASE}/data/dataflow/IMF.STA:{dataflow}/1.0/{key}?startPeriod=1976-01&dimension_at_observation=TIME_PERIOD",
+        f"{IMF_BASE}/data/IMF.STA,{dataflow},1.0/{key}?startPeriod=1976-01&dimension_at_observation=TIME_PERIOD",
+        f"{IMF_BASE}/data/{dataflow}/{key}?startPeriod=1976-01&dimension_at_observation=TIME_PERIOD",
     ]
     errors = []
     session = requests.Session()
@@ -149,7 +151,8 @@ def fetch_imf_series(iso3: str, series_kind: str) -> pd.DataFrame:
         try:
             response = session.get(url, headers=HEADERS, timeout=TIMEOUT)
             if response.status_code >= 400:
-                errors.append(f"{response.status_code} at {url}")
+                body = response.text[:180].replace("\n", " ")
+                errors.append(f"HTTP {response.status_code} at {url} ({body})")
                 continue
             raw = _parse_response(response)
             normalized = _normalize_observations(raw)
@@ -160,8 +163,9 @@ def fetch_imf_series(iso3: str, series_kind: str) -> pd.DataFrame:
             errors.append(f"{url}: {exc}")
     raise RuntimeError(
         f"Could not retrieve {series_kind} data for {iso3} from the IMF SDMX API. "
-        "The endpoint may require a different IMF dataflow identifier or the series may be unavailable. "
-        "Attempt details: " + " | ".join(errors[-4:])
+        f"Tried the current IMF {dataflow} dataflow and compatible URL variants. "
+        "The API may use a different series key or require portal authorization. "
+        "Attempt details: " + " | ".join(errors[-5:])
     )
 
 def fetch_pair(country1_name: str, country2_name: str) -> pd.DataFrame:
