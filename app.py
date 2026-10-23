@@ -85,12 +85,12 @@ def _parse_response(response: requests.Response) -> pd.DataFrame:
         raise ValueError(f"Could not parse IMF response as CSV: {exc}") from exc
 
 def _column(df: pd.DataFrame, candidates: list[str]) -> str | None:
-    normalized = {re.sub(r"[^a-z0-9]", "", str(c).lower()): str(c) for c in df.columns}
+    """Find a dataframe column by normalized exact name."""
+    normalized = {
+        re.sub(r"[^a-z0-9]", "", str(column).lower()): str(column)
+        for column in df.columns
+    }
     for candidate in candidates:
         key = re.sub(r"[^a-z0-9]", "", candidate.lower())
-        if key in normalized:
-            return normalized[key]
-    # fallback for SDMX columns with prefixes/suffixes
-    for candidate in candidates:
-        key = re.sub(r"[^a-z0-9]", "", candidate.lower())
-        for norm, original in normalized.items():
+        match = normalized.get(key)
+        if match is not None:
