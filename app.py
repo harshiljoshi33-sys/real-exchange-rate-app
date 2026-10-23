@@ -85,12 +85,12 @@ def _parse_response(response: requests.Response) -> pd.DataFrame:
         raise ValueError(f"Could not parse IMF response as CSV: {exc}") from exc
 
 def _column(df: pd.DataFrame, candidates: list[str]) -> str | None:
-    """Return the best matching column name without nested-loop indentation."""
-    normalized = {
-        re.sub(r"[^a-z0-9]", "", str(col).lower()): str(col)
-        for col in df.columns
-    }
-
-    # Prefer exact normalized matches.
+    normalized = {re.sub(r"[^a-z0-9]", "", str(c).lower()): str(c) for c in df.columns}
     for candidate in candidates:
         key = re.sub(r"[^a-z0-9]", "", candidate.lower())
+        if key in normalized:
+            return normalized[key]
+    # fallback for SDMX columns with prefixes/suffixes
+    for candidate in candidates:
+        key = re.sub(r"[^a-z0-9]", "", candidate.lower())
+        for norm, original in normalized.items():
