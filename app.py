@@ -13,6 +13,27 @@ import streamlit as st
 
 st.set_page_config(page_title="FX & Real Exchange Rate Explorer", page_icon="🌍", layout="wide")
 
+# Light-grey application canvas with a purple app title.
+st.markdown(
+    """
+    <style>
+      .stApp { background-color: #F3F4F6; }
+      [data-testid="stHeader"] { background: rgba(243, 244, 246, 0.92); }
+      h1 { color: #6D28D9 !important; }
+      [data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid #E5E7EB;
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+      }
+      [data-testid="stSidebar"] {
+        background-color: #E9EDF2;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 IMF_BASE = "https://api.imf.org/external/sdmx/3.0"
 START_DEFAULT = date(1976, 1, 1)
 TIMEOUT = 45
@@ -184,30 +205,82 @@ def fetch_pair(country1_name: str, country2_name: str) -> pd.DataFrame:
 
 def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
     fig = go.Figure()
+
+    # Consistent series colours make the legend easy to scan.
+    real_color = "#2563EB"
+    nominal_color = "#60A5FA"
+
     if view in ("Real", "Both"):
         fig.add_trace(go.Scatter(
-            x=df["date"], y=df["Real Index"], mode="lines", name="Real Index (base = 100)",
-            yaxis="y", line={"width": 2}
+            x=df["date"], y=df["Real Index"], mode="lines",
+            name="Real exchange rate index (base = 100)",
+            yaxis="y", line={"width": 2.5, "color": real_color}
         ))
     if view in ("Nominal", "Both"):
         fig.add_trace(go.Scatter(
-            x=df["date"], y=df["S"], mode="lines", name=f"Nominal S (units of {c2} per 1 {c1})",
-            yaxis="y2" if view == "Both" else "y", line={"width": 2}
+            x=df["date"], y=df["S"], mode="lines",
+            name=f"Nominal exchange rate ({c2} per 1 {c1})",
+            yaxis="y2" if view == "Both" else "y",
+            line={"width": 2.5, "color": nominal_color}
         ))
+
+    # The reference line at 100 applies only to the real index.
+    shapes = []
+    if view in ("Real", "Both"):
+        shapes.append({
+            "type": "line", "xref": "paper", "x0": 0, "x1": 1,
+            "yref": "y", "y0": 100, "y1": 100,
+            "line": {"color": "#6B7280", "width": 1.5, "dash": "dash"},
+            "layer": "below"
+        })
+
     layout = {
-        "title": f"Real and nominal exchange rates: {c1} → {c2}",
-        "xaxis": {"title": "Month", "rangeslider": {"visible": True}},
+        "title": {
+            "text": f"Real and nominal exchange rates: {c1} → {c2}",
+            "x": 0.02, "xanchor": "left",
+            "font": {"color": "#6D28D9", "size": 22}
+        },
+        "paper_bgcolor": "#F3F4F6",
+        "plot_bgcolor": "#F3F4F6",
+        "font": {"color": "#374151", "family": "Arial, sans-serif"},
+        "xaxis": {
+            "title": "Month",
+            "showgrid": True, "gridcolor": "#DDE2E8",
+            "zeroline": False
+        },
         "hovermode": "x unified",
-        "legend": {"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
-        "margin": {"l": 25, "r": 25, "t": 80, "b": 30},
+        "showlegend": True,
+        "legend": {
+            "title": {"text": "Series"},
+            "orientation": "h", "yanchor": "bottom", "y": 1.02,
+            "xanchor": "left", "x": 0,
+            "bgcolor": "rgba(255,255,255,0.65)",
+            "bordercolor": "#D1D5DB", "borderwidth": 0
+        },
+        "margin": {"l": 65, "r": 65, "t": 105, "b": 55},
+        "shapes": shapes,
     }
     if view == "Both":
-        layout["yaxis"] = {"title": "Real Index (base = 100)", "side": "left"}
-        layout["yaxis2"] = {"title": f"Nominal S ({c2} per {c1})", "overlaying": "y", "side": "right", "showgrid": False}
+        layout["yaxis"] = {
+            "title": "Real exchange rate index (base = 100)",
+            "side": "left", "gridcolor": "#DDE2E8",
+            "zeroline": False
+        }
+        layout["yaxis2"] = {
+            "title": f"Nominal exchange rate ({c2} per {c1})",
+            "overlaying": "y", "side": "right", "showgrid": False,
+            "zeroline": False
+        }
     elif view == "Real":
-        layout["yaxis"] = {"title": "Real Index (base = 100)"}
+        layout["yaxis"] = {
+            "title": "Real exchange rate index (base = 100)",
+            "gridcolor": "#DDE2E8", "zeroline": False
+        }
     else:
-        layout["yaxis"] = {"title": f"Nominal S ({c2} per {c1})"}
+        layout["yaxis"] = {
+            "title": f"Nominal exchange rate ({c2} per {c1})",
+            "gridcolor": "#DDE2E8", "zeroline": False
+        }
     fig.update_layout(**layout)
     return fig
 
