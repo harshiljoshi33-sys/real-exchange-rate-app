@@ -17,17 +17,106 @@ st.set_page_config(page_title="FX & Real Exchange Rate Explorer", page_icon="ðŸŒ
 st.markdown(
     """
     <style>
-      .stApp { background-color: #F3F4F6; }
-      [data-testid="stHeader"] { background: rgba(243, 244, 246, 0.92); }
-      h1 { color: #6D28D9 !important; }
-      [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.72);
-        border: 1px solid #E5E7EB;
-        padding: 0.75rem 1rem;
-        border-radius: 0.75rem;
+      :root {
+        --app-bg: #F3F4F6;
+        --sidebar-bg: #E9EDF2;
+        --ink: #252B37;
+        --muted: #667085;
+        --border: #E0E4EA;
+        --purple: #6D28D9;
       }
+
+      .stApp { background: var(--app-bg); color: var(--ink); }
+      [data-testid="stHeader"] { background: rgba(243, 244, 246, 0.94); }
+
+      /* Main content: consistent alignment and less dead space. */
+      section.main > div.block-container {
+        max-width: 1600px;
+        padding-top: 1.6rem;
+        padding-bottom: 2rem;
+        padding-left: clamp(1.25rem, 3vw, 2.75rem);
+        padding-right: clamp(1.25rem, 3vw, 2.75rem);
+      }
+
+      /* Compact, left-aligned product title. */
+      h1 {
+        color: var(--purple) !important;
+        font-size: clamp(1.8rem, 2.5vw, 2.35rem) !important;
+        line-height: 1.2 !important;
+        font-weight: 680 !important;
+        letter-spacing: -0.035em !important;
+        text-align: left !important;
+        margin-bottom: 0.25rem !important;
+      }
+      [data-testid="stCaptionContainer"] {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin-top: 0.1rem;
+        margin-bottom: 0.8rem;
+      }
+
+      /* Summary cards: compact, aligned, and with readable wrapping labels. */
+      [data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--border);
+        padding: 0.65rem 0.85rem;
+        border-radius: 0.7rem;
+        min-height: 104px;
+      }
+      [data-testid="stMetricLabel"] {
+        color: var(--muted);
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        min-height: 2.35em;
+        align-items: flex-start !important;
+      }
+      [data-testid="stMetricLabel"] p {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        overflow-wrap: anywhere;
+        line-height: 1.25 !important;
+      }
+      [data-testid="stMetricValue"] {
+        color: var(--ink);
+        font-size: 1.9rem;
+        line-height: 1.1;
+      }
+
+      /* Narrower sidebar with a matching neutral surface. */
       [data-testid="stSidebar"] {
-        background-color: #E9EDF2;
+        background-color: var(--sidebar-bg);
+        min-width: 285px;
+        max-width: 320px;
+      }
+      [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.5rem;
+      }
+      [data-testid="stSidebar"] h2 {
+        font-size: 1.35rem;
+        letter-spacing: -0.02em;
+      }
+      [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        font-size: 0.92rem;
+      }
+      [data-testid="stSidebar"] .stButton button {
+        border-radius: 0.6rem;
+        min-height: 2.7rem;
+        font-weight: 600;
+      }
+
+      /* Keep all app surfaces quiet and consistent. */
+      div[data-testid="stPlotlyChart"] { padding-top: 0.1rem; }
+      hr { border-color: var(--border); }
+      @media (max-width: 900px) {
+        section.main > div.block-container {
+          padding-left: 1rem;
+          padding-right: 1rem;
+        }
+        h1 { font-size: 1.8rem !important; }
+        [data-testid="stMetric"] { min-height: 94px; padding: 0.55rem 0.65rem; }
+        [data-testid="stMetricValue"] { font-size: 1.55rem; }
       }
     </style>
     """,
@@ -206,81 +295,150 @@ def fetch_pair(country1_name: str, country2_name: str) -> pd.DataFrame:
 def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
     fig = go.Figure()
 
-    # Consistent series colours make the legend easy to scan.
+    # Restrained, consistent colours for a polished financial-data chart.
     real_color = "#2563EB"
     nominal_color = "#60A5FA"
+    axis_color = "#667085"
+    grid_color = "#E0E4EA"
+    chart_bg = "#F3F4F6"
 
     if view in ("Real", "Both"):
         fig.add_trace(go.Scatter(
-            x=df["date"], y=df["Real Index"], mode="lines",
-            name="Real exchange rate index (base = 100)",
-            yaxis="y", line={"width": 2.5, "color": real_color}
-        ))
-    if view in ("Nominal", "Both"):
-        fig.add_trace(go.Scatter(
-            x=df["date"], y=df["S"], mode="lines",
-            name=f"Nominal exchange rate ({c2} per 1 {c1})",
-            yaxis="y2" if view == "Both" else "y",
-            line={"width": 2.5, "color": nominal_color}
+            x=df["date"],
+            y=df["Real Index"],
+            mode="lines",
+            name="Real index (base = 100)",
+            yaxis="y",
+            line={"width": 2.2, "color": real_color},
+            hovertemplate="%{x|%b %Y}<br>Real index: %{y:.2f}<extra></extra>",
         ))
 
-    # The reference line at 100 applies only to the real index.
+    if view in ("Nominal", "Both"):
+        fig.add_trace(go.Scatter(
+            x=df["date"],
+            y=df["S"],
+            mode="lines",
+            name=f"Nominal rate ({c2} per {c1})",
+            yaxis="y2" if view == "Both" else "y",
+            line={"width": 2.2, "color": nominal_color},
+            hovertemplate=(
+                "%{x|%b %Y}<br>"
+                f"Nominal rate ({c2} per {c1}): "
+                "%{y:.4f}<extra></extra>"
+            ),
+        ))
+
+    # The 100 reference line is meaningful for the real index only.
     shapes = []
     if view in ("Real", "Both"):
         shapes.append({
-            "type": "line", "xref": "paper", "x0": 0, "x1": 1,
+            "type": "line",
+            "xref": "paper", "x0": 0, "x1": 1,
             "yref": "y", "y0": 100, "y1": 100,
-            "line": {"color": "#6B7280", "width": 1.5, "dash": "dash"},
-            "layer": "below"
+            "line": {"color": "#98A2B3", "width": 1.2, "dash": "dash"},
+            "layer": "below",
         })
 
+    short_nominal_title = f"Nominal rate ({c2} per {c1})"
     layout = {
         "title": {
             "text": f"Real and nominal exchange rates: {c1} â†’ {c2}",
-            "x": 0.02, "xanchor": "left",
-            "font": {"color": "#6D28D9", "size": 22}
+            "x": 0.015,
+            "xanchor": "left",
+            "y": 0.98,
+            "yanchor": "top",
+            "font": {"color": "#6D28D9", "size": 18},
         },
-        "paper_bgcolor": "#F3F4F6",
-        "plot_bgcolor": "#F3F4F6",
-        "font": {"color": "#374151", "family": "Arial, sans-serif"},
+        "paper_bgcolor": chart_bg,
+        "plot_bgcolor": chart_bg,
+        "font": {
+            "color": "#344054",
+            "family": "Arial, sans-serif",
+            "size": 12,
+        },
         "xaxis": {
-            "title": "Month",
-            "showgrid": True, "gridcolor": "#DDE2E8",
-            "zeroline": False
+            "title": {"text": "Month", "font": {"color": axis_color, "size": 12}},
+            "showgrid": True,
+            "gridcolor": grid_color,
+            "gridwidth": 1,
+            "zeroline": False,
+            "showline": False,
+            "tickfont": {"color": axis_color},
+            "automargin": True,
         },
         "hovermode": "x unified",
+        "hoverlabel": {
+            "bgcolor": "#FFFFFF",
+            "bordercolor": "#D0D5DD",
+            "font": {"color": "#344054", "size": 12},
+        },
         "showlegend": True,
         "legend": {
-            "title": {"text": "Series"},
-            "orientation": "h", "yanchor": "bottom", "y": 1.02,
-            "xanchor": "left", "x": 0,
-            "bgcolor": "rgba(255,255,255,0.65)",
-            "bordercolor": "#D1D5DB", "borderwidth": 0
+            "orientation": "h",
+            "yanchor": "top",
+            "y": -0.20,
+            "xanchor": "center",
+            "x": 0.5,
+            "font": {"size": 12, "color": "#475467"},
+            "bgcolor": "rgba(0,0,0,0)",
+            "borderwidth": 0,
+            "itemsizing": "constant",
+            "tracegroupgap": 12,
         },
-        "margin": {"l": 65, "r": 65, "t": 105, "b": 55},
+        "margin": {"l": 68, "r": 68, "t": 68, "b": 95},
         "shapes": shapes,
     }
+
     if view == "Both":
         layout["yaxis"] = {
-            "title": "Real exchange rate index (base = 100)",
-            "side": "left", "gridcolor": "#DDE2E8",
-            "zeroline": False
+            "title": {
+                "text": "Real index (base = 100)",
+                "font": {"color": axis_color, "size": 12},
+            },
+            "side": "left",
+            "gridcolor": grid_color,
+            "gridwidth": 1,
+            "zeroline": False,
+            "tickfont": {"color": axis_color},
+            "automargin": True,
         }
         layout["yaxis2"] = {
-            "title": f"Nominal exchange rate ({c2} per {c1})",
-            "overlaying": "y", "side": "right", "showgrid": False,
-            "zeroline": False
+            "title": {
+                "text": short_nominal_title,
+                "font": {"color": axis_color, "size": 12},
+            },
+            "overlaying": "y",
+            "side": "right",
+            "showgrid": False,
+            "zeroline": False,
+            "tickfont": {"color": axis_color},
+            "automargin": True,
         }
     elif view == "Real":
         layout["yaxis"] = {
-            "title": "Real exchange rate index (base = 100)",
-            "gridcolor": "#DDE2E8", "zeroline": False
+            "title": {
+                "text": "Real index (base = 100)",
+                "font": {"color": axis_color, "size": 12},
+            },
+            "gridcolor": grid_color,
+            "gridwidth": 1,
+            "zeroline": False,
+            "tickfont": {"color": axis_color},
+            "automargin": True,
         }
     else:
         layout["yaxis"] = {
-            "title": f"Nominal exchange rate ({c2} per {c1})",
-            "gridcolor": "#DDE2E8", "zeroline": False
+            "title": {
+                "text": short_nominal_title,
+                "font": {"color": axis_color, "size": 12},
+            },
+            "gridcolor": grid_color,
+            "gridwidth": 1,
+            "zeroline": False,
+            "tickfont": {"color": axis_color},
+            "automargin": True,
         }
+
     fig.update_layout(**layout)
     return fig
 
