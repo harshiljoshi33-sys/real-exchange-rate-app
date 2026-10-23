@@ -345,9 +345,9 @@ def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
             "text": f"Real and nominal exchange rates: {c1} → {c2}",
             "x": 0.015,
             "xanchor": "left",
-            "y": 0.98,
+            "y": 0.99,
             "yanchor": "top",
-            "font": {"color": "#6D28D9", "size": 18},
+            "font": {"color": "#6D28D9", "size": 17},
         },
         "paper_bgcolor": chart_bg,
         "plot_bgcolor": chart_bg,
@@ -376,7 +376,7 @@ def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
         "legend": {
             "orientation": "h",
             "yanchor": "top",
-            "y": -0.20,
+            "y": -0.17,
             "xanchor": "center",
             "x": 0.5,
             "font": {"size": 12, "color": "#475467"},
@@ -385,7 +385,8 @@ def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
             "itemsizing": "constant",
             "tracegroupgap": 12,
         },
-        "margin": {"l": 68, "r": 68, "t": 68, "b": 95},
+        "height": 440,
+        "margin": {"l": 68, "r": 100, "t": 54, "b": 82},
         "shapes": shapes,
     }
 
@@ -404,7 +405,7 @@ def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
         }
         layout["yaxis2"] = {
             "title": {
-                "text": short_nominal_title,
+                "text": "Nominal exchange rate",
                 "font": {"color": axis_color, "size": 12},
             },
             "overlaying": "y",
@@ -429,7 +430,7 @@ def build_chart(df: pd.DataFrame, view: str, c1: str, c2: str) -> go.Figure:
     else:
         layout["yaxis"] = {
             "title": {
-                "text": short_nominal_title,
+                "text": "Nominal exchange rate",
                 "font": {"color": axis_color, "size": 12},
             },
             "gridcolor": grid_color,
